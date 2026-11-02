@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="CD1 Sat Miner demo: build a mining facility, upgrade GPUs and earn Sat from a shared reward pool.">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>CD1 Sat Miner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: one phone-width column; production on top, capacity meters, rigs, upgrades, pool, wallet. Deliberately dark single look (mining room at night, BTC orange light). */
+:root{
+  --bg:#10151d; --panel:#171e29; --panel-2:#1e2735; --line:#2a3546;
+  --fg:#e7ecf3; --muted:#8b98ab; --accent:#f39a2b; --accent-soft:rgba(243,154,43,.14);
+  --good:#4fc28b; --warn:#f3c14b; --bad:#ef6a5b; --cool:#5ab4e8;
+  --usdt:#3fbf9f; --bnb:#f0c03c; --cd1:#a98bf0;
+  --f-display:"Chakra Petch","Rajdhani","Segoe UI",sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.45;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 96px}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.brand{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.brand b{color:var(--accent)}
+.pill{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;padding:3px 7px;border-radius:4px;border:1px solid var(--accent);color:var(--accent)}
+.speed{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.speed button{background:none;border:0;color:var(--muted);font:500 12px var(--f-mono);padding:6px 9px;cursor:pointer}
+.speed button[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.hero{background:linear-gradient(180deg,var(--panel-2),var(--panel));border-color:#3a3226}
+.acc-label{font-size:12px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.acc{font-family:var(--f-display);font-weight:700;font-size:clamp(30px,9vw,42px);line-height:1.1;color:var(--accent);word-break:break-all}
+.acc small{font-size:.45em;color:var(--muted);margin-left:6px;letter-spacing:.08em}
+.sub{color:var(--muted);font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}
+.stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font-family:var(--f-mono);font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.stat .s{font-size:11px;color:var(--muted);font-family:var(--f-mono)}
+.btn{font:600 14px var(--f-body);border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--fg);padding:9px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn:focus-visible,.speed button:focus-visible,.gpu:focus-visible,.slot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1206}
+.btn.full{width:100%;margin-top:12px}
+.btn.dim{opacity:.55}
+.cost{font-family:var(--f-mono);font-size:12px;font-weight:600;padding:2px 6px;border-radius:4px;white-space:nowrap}
+.c-USDT{color:var(--usdt);background:rgba(63,191,159,.12)}
+.c-BNB{color:var(--bnb);background:rgba(240,192,60,.12)}
+.c-CD1{color:var(--cd1);background:rgba(169,139,240,.14)}
+.meters{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.meter .top{display:flex;justify-content:space-between;font-size:12px;gap:6px}
+.meter .top span:first-child{color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.bar{height:8px;border-radius:4px;background:var(--bg);border:1px solid var(--line);overflow:hidden;margin-top:5px}
+.bar i{display:block;height:100%;background:var(--good);transition:width .3s}
+.bar i.warn{background:var(--warn)} .bar i.bad{background:var(--bad)}
+.hint{margin-top:10px;font-size:13px;color:var(--fg);background:var(--accent-soft);border-radius:6px;padding:8px 10px}
+.hint b{color:var(--accent)}
+.rig{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--bg);display:flex;flex-direction:column;gap:10px}
+.rigs{display:flex;flex-direction:column;gap:10px}
+.rig-head{display:flex;justify-content:space-between;gap:8px;font-size:13px;flex-wrap:wrap}
+.rig-head b{font-family:var(--f-display);font-size:15px;letter-spacing:.04em}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.gpu,.slot{border-radius:6px;padding:8px 4px;text-align:center;cursor:pointer;font-family:var(--f-mono);font-size:12px;min-width:0}
+.gpu{background:var(--panel-2);border:1px solid var(--line);color:var(--fg)}
+.gpu .l{font-family:var(--f-display);font-weight:700;font-size:16px;color:var(--accent)}
+.gpu[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.gpu .fan{display:block;width:16px;height:16px;margin:0 auto 2px;border-radius:50%;border:2px dashed var(--muted);animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.gpu .fan{animation:none}}
+.slot{background:none;border:1px dashed var(--line);color:var(--muted)}
+.slot.open{border-color:var(--usdt);color:var(--usdt)}
+.slot[disabled]{cursor:default}
+.detail{border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap}
+.row-btns .btn{flex:1 1 160px;font-size:13px}
+.ups{display:flex;flex-direction:column}
+.up{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 0;border-top:1px solid var(--line);align-items:center}
+.up:first-child{border-top:0;padding-top:0}
+.up .name{font-weight:600}
+.up .lv{font-family:var(--f-mono);font-size:12px;color:var(--accent);margin-left:6px}
+.up .desc{grid-column:1;font-size:12px;color:var(--muted)}
+.up .btn{grid-row:1 / span 2;grid-column:2;font-size:13px;padding:8px 10px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.wallet{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+.cohort{width:100%;border-collapse:collapse;font-size:13px}
+.cohort th{text-align:right;font-weight:600;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:6px 4px;border-bottom:1px solid var(--line)}
+.cohort th:first-child,.cohort td:first-child{text-align:left}
+.cohort td{text-align:right;padding:7px 4px;border-bottom:1px solid var(--line);font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cohort td:first-child{font-family:var(--f-body)}
+.cohort tr.you td{color:var(--accent);font-weight:600}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.lic-price{font-family:var(--f-display);font-weight:700;font-size:44px;line-height:1.1;color:var(--accent)}
+.lic-price small{font-size:.4em;color:var(--muted);letter-spacing:.08em}
+.bd{margin-top:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:8px 10px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:13px}
+.bd span:nth-child(even){text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.bd .fee{color:var(--bad)}
+.bd .tot{font-weight:600;border-top:1px solid var(--line);padding-top:4px}
+.bd .muted{color:var(--muted)}
+.empty{color:var(--muted);font-size:14px;padding:6px 0}
+.sub-h{font-family:var(--f-display);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px}
+.kv .tot{font-weight:600;border-top:1px solid var(--line);padding-top:6px}
+.owner-demo{margin-top:12px;border:1px dashed var(--line);border-radius:8px;padding:10px}
+.owner-demo select{flex:1 1 180px;background:var(--panel-2);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font:500 13px var(--f-body)}
+.owner-demo .btn{flex:0 1 auto}
+.note{font-size:12px;color:var(--muted);text-align:center;padding:0 8px}
+.head-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.help-btn{font:600 12px var(--f-body);padding:6px 10px;border-radius:6px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);cursor:pointer}
+.help-btn:focus-visible,.close-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.overlay{position:fixed;inset:0;background:rgba(5,8,12,.72);z-index:30;display:flex;align-items:flex-end;justify-content:center;padding:env(safe-area-inset-top,0px) max(0px,env(safe-area-inset-right,0px)) 0 max(0px,env(safe-area-inset-left,0px))}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px 14px 0 0;width:100%;max-width:600px;max-height:88%;overflow-y:auto;padding:16px max(16px,env(safe-area-inset-left,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+@media (min-width:640px){.overlay{align-items:center}.sheet{border-radius:14px}}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;position:sticky;top:-16px;background:var(--panel);padding-block:4px}
+.sheet-head h3{font-family:var(--f-display);font-size:20px;margin:0;letter-spacing:.04em}
+.close-btn{background:none;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px 10px;font:600 13px var(--f-body);cursor:pointer}
+.sheet h4{font-family:var(--f-display);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+.sheet p{margin:0;font-size:14px;color:var(--fg)}
+.sheet ol{margin:0;padding-left:20px;font-size:14px;display:flex;flex-direction:column;gap:4px}
+.eq{display:flex;flex-direction:column}
+.eq div{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.eq div:first-child{border-top:0}
+.eq b{font-weight:600}
+.eq span{grid-column:1 / -1;color:var(--muted);font-size:13px}
+.eq .cost{justify-self:end}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));max-width:min(520px,calc(100% - 32px));background:var(--panel-2);border:1px solid var(--accent);color:var(--fg);padding:10px 14px;border-radius:8px;font-size:14px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+@media (max-width:380px){.stats{grid-template-columns:1fr 1fr}.meters{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">CD1 SAT <b>MINER</b> <span class="pill">DEMO</span></div>
+    <a class="help-btn" href="index.html" style="text-decoration:none">Play for real</a>
+    <div class="head-r">
+    <button class="help-btn" id="helpBtn" type="button">How to play</button>
+    <div class="speed" role="group" aria-label="Simulation speed">
+      <button id="sp1" data-speed="1">1x</button>
+      <button id="sp60" data-speed="60">1m=1h</button>
+      <button id="sp3600" data-speed="3600">1s=1h</button>
+      <button id="sp86400" data-speed="86400">1s=1d</button>
+    </div>
+    </div>
+  </header>
+
+  <section class="hero" id="licenseBox">
+    <div class="acc-label">Start mining</div>
+    <div class="lic-price">3 <small>USDT</small></div>
+    <p class="sub" style="margin:4px 0 12px">One-time mining license. 99% of it goes into the reward pool.</p>
+    <div class="kv">
+      <span>GPU</span><span>1 × Lv1 · 10 H/s</span>
+      <span>Rig case</span><span>2 slots</span>
+      <span>PSU</span><span>300 W</span>
+      <span>Facility</span><span>Home room · 1 rig</span>
+      <span>Electricity</span><span>City grid · 500 W</span>
+      <span>Cooling / Internet</span><span>Desk fan · ADSL 85%</span>
+    </div>
+    <button class="btn primary full" id="licBtn" data-act="license">Buy license · 3 USDT</button>
+  </section>
+
+  <section class="hero" id="heroMain" hidden>
+    <div class="acc-label">You receive if you claim now</div>
+    <div class="acc"><span id="acc" class="num">0</span><small>SAT</small></div>
+    <div class="sub num" id="accUsd">≈ 0.00000000 USDT</div>
+    <div class="bd" id="breakdown"></div>
+    <div class="stats">
+      <div class="stat"><div class="k">Production</div><div class="v" id="satHour">0</div><div class="s">Sat / hour</div></div>
+      <div class="stat"><div class="k">Network share</div><div class="v" id="share">0%</div><div class="s" id="usdDay">0 USDT / day</div></div>
+      <div class="stat"><div class="k">Hash power</div><div class="v" id="hash">0</div><div class="s">effective H/s</div></div>
+    </div>
+    <button class="btn primary full" id="claimBtn" data-act="claim">Claim</button>
+  </section>
+
+  <section>
+    <h2>Capacity</h2>
+    <div class="meters" id="meters"></div>
+    <div class="hint" id="hint"></div>
+  </section>
+
+  <section>
+    <h2><span>Rigs <span class="num" id="rigCount"></span></span><button class="btn" data-act="addRig" style="font-size:12px;padding:6px 10px">+ New rig <span class="cost c-USDT">3 USDT</span></button></h2>
+    <div class="rigs" id="rigs"></div>
+  </section>
+
+  <section>
+    <h2>Facility upgrades</h2>
+    <div class="ups" id="ups"></div>
+  </section>
+
+  <section>
+    <h2>Reward pool</h2>
+    <div class="kv">
+      <span>Miners</span><span class="num" id="miners"></span>
+      <span>Pool</span><span class="num" id="pool"></span>
+      <span>Paid out per day (3%)</span><span class="num" id="poolDay"></span>
+      <span>Network, Sat / hour</span><span class="num" id="netHour"></span>
+      <span>Network hash</span><span class="num" id="netHash"></span>
+      <span>CD1 in contract</span><span class="num" id="cd1Locked"></span>
+      <span>CD1 dividend today</span><span class="num" id="divDay"></span>
+      <span>Owner share (1%)</span><span class="num" id="ownerCut"></span>
+    </div>
+    <h3 class="sub-h">Pool inflows, all time</h3>
+    <div class="kv inflows">
+      <span>Player payments (99%)</span><span class="num" id="usdtFed"></span>
+      <span>Wear fees returned</span><span class="num" id="inWear"></span>
+      <span>CD1 dividends</span><span class="num" id="inDiv"></span>
+      <span>CD1 Exchange revenue</span><span class="num" id="in-exchange"></span>
+      <span>Token income</span><span class="num" id="in-tokens"></span>
+      <span>Owner support</span><span class="num" id="in-owner"></span>
+      <span>Marketing</span><span class="num" id="in-marketing"></span>
+      <span>Community donations</span><span class="num" id="in-community"></span>
+      <span class="tot">Total in</span><span class="num tot" id="inTotal"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2><span>Network</span><span class="sub" style="text-transform:none;letter-spacing:0">200 simulated players</span></h2>
+    <div class="kv">
+      <span>CD1 used in the game</span><span class="num" id="usedTxt"></span>
+      <span>Day</span><span class="num" id="dayNo"></span>
+      <span>Players joined</span><span class="num" id="joined"></span>
+      <span>Deposited by players</span><span class="num" id="deposits"></span>
+      <span>Paid out to miners</span><span class="num" id="paidOut"></span>
+      <span>CD1 dividends added</span><span class="num" id="divTotal"></span>
+      <span>CD1 spent by players</span><span class="num" id="botCd1"></span>
+    </div>
+    <div class="tbl-wrap"><table class="cohort">
+      <thead><tr><th>Group</th><th>Own money</th><th>CD1 spent</th><th>Net profit</th><th>Return</th></tr></thead>
+      <tbody>
+        <tr><td>First 50 to join</td><td id="eS"></td><td id="eC"></td><td id="eE"></td><td id="eR"></td></tr>
+        <tr><td>Last 50 to join</td><td id="lS"></td><td id="lC"></td><td id="lE"></td><td id="lR"></td></tr>
+        <tr class="you"><td>You</td><td id="yS"></td><td id="yC"></td><td id="yE"></td><td id="yR"></td></tr>
+      </tbody>
+    </table></div>
+    <p class="sub" style="margin:10px 0 0">Only USDT counts toward break-even; CD1 is not included. Own money is the USDT a player put in from their own wallet; earnings spent again on upgrades and repairs are not counted twice. Net profit = everything earned minus everything spent (claimed or not). Return = (own money + net profit) ÷ own money, so 200% means the player doubled their money. CD1 spent is shown separately. About 40% of players reinvest everything for their first 30 days; the rest keep what they earn.</p>
+  </section>
+
+  <section>
+    <h2>Demo wallet</h2>
+    <div class="wallet">
+      <div class="stat"><div class="k">USDT</div><div class="v" id="wUsdt"></div></div>
+      <div class="stat"><div class="k">CD1</div><div class="v" id="wCd1"></div></div>
+    </div>
+  </section>
+
+  <p class="note">1 Sat = 0.00000001 USDT. Demo mode: balances, 200 other players and CD1 dividends are simulated. The contract starts with 10,000 CD1. The USDT dividends that CD1 earns are added to the pool every day; in the demo they are estimated at about 1 USDT per day per 10,000 CD1 in the contract. Simulated players spend CD1 on electricity, technicians and overclock. USDT payments send 99% to the pool and 1% to the owner. CD1 payments stay in the contract.</p>
+</div>
+<div class="toast" id="toast" hidden></div>
+<div class="overlay" id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="sheet">
+    <div class="sheet-head"><h3 id="helpTitle">How to play</h3><button class="close-btn" id="helpClose" type="button">Close</button></div>
+    <div>
+      <h4>The goal</h4>
+      <p>You run a mining facility. Your GPUs produce hash power, and the reward pool pays out 3% of itself every day, split between all miners by their share of the network's hash power. More effective hash means a bigger share.</p>
+    </div>
+    <div>
+      <h4>Getting started</h4>
+      <p>Buy a mining license for 3 USDT. It gives you a starter set: one Lv1 GPU, a 2-slot rig, a 300 W PSU, a home room, 500 W of city grid power, a desk fan and ADSL internet. 99% of the license fee goes into the reward pool.</p>
+    </div>
+    <div>
+      <h4>What is a Sat?</h4>
+      <p>Rewards are counted in Sat, like Bitcoin. 1 Sat = 0.00000001 USDT, so 100,000,000 Sat = 1 USDT. Rewards build up every second and you claim them whenever you like.</p>
+    </div>
+    <div>
+      <h4>Equipment</h4>
+      <div class="eq">
+        <div><b>GPU</b><span class="cost c-USDT">USDT</span><span>Produces hash power. Each level gives more hash per watt. Tap a GPU to upgrade it.</span></div>
+        <div><b>Rig case</b><span class="cost c-USDT">USDT</span><span>Holds your GPUs. Upgrade it for more slots, or buy a new rig.</span></div>
+        <div><b>PSU</b><span class="cost c-USDT">USDT</span><span>Power supply of one rig. All GPUs in that rig must fit its watt limit.</span></div>
+        <div><b>Facility</b><span class="cost c-USDT">USDT</span><span>Sets how many rigs you can own: home room, garage, warehouse and up.</span></div>
+        <div><b>Electricity</b><span class="cost c-CD1">CD1</span><span>Total power for your whole facility. When it is full, no GPU can be added or upgraded.</span></div>
+        <div><b>Cooling</b><span class="cost c-USDT">USDT</span><span>GPUs make heat. If heat goes over your cooling capacity, hash drops by the same ratio.</span></div>
+        <div><b>Internet</b><span class="cost c-USDT">USDT</span><span>Uptime. At 85% uptime you mine 85% of the time.</span></div>
+        <div><b>Technician</b><span class="cost c-CD1">CD1</span><span>Permanent hash bonus, up to +15%.</span></div>
+        <div><b>Wear fee and repair</b><span class="cost c-USDT">USDT</span><span>Once you have earned back what you spent, a wear fee starts at 0% and rises 1% per day, up to 90%. It is only taken from profit: the part of a claim that gives you back your own money is always fee-free. The fee goes back to the reward pool. The claim screen always shows the fee before you claim. Repair resets the fee to 0%; it first claims your mined Sat at the current fee, so it cannot be used to skip it. Repair costs 50% of the current fee applied to your total profit so far, so it gets more expensive the more you have earned. Repair costs do not count toward break-even, so the fee starts climbing again right away. 99% of the repair cost goes to the pool.</span></div>
+        <div><b>Overclock</b><span class="cost c-CD1">CD1</span><span>+25% hash and +30% heat. Costs 0.05 CD1 per GPU. A new overclock runs at least 24 hours and stops at the next 00:00 UTC after that (24 to 48 hours). Each extra purchase adds one more day.</span></div>
+      </div>
+    </div>
+    <div>
+      <h4>How to grow</h4>
+      <ol>
+        <li>Fill your free slots with GPUs and upgrade them.</li>
+        <li>When a limit is hit, the Capacity box tells you which one and what to buy.</li>
+        <li>Upgrade power (PSU and electricity) before high-level GPUs, since they draw more watts.</li>
+        <li>Keep heat under your cooling capacity, or you lose hash.</li>
+        <li>Claim your Sat and reinvest, or take it out.</li>
+        <li>Once the wear fee starts, claim often: the fee is taken at the rate on the day you claim.</li>
+        <li>Remember to keep some CD1 aside for the future. Upgrade prices are fixed in CD1, so when the CD1 price rises, your upgrades cost more in dollars. A simple habit: put 50% of your CD1 into the game and keep 50%. If the price goes up, the CD1 you kept gains value and offsets your costs.</li>
+      </ol>
+    </div>
+    <div>
+      <h4>Where your payments go</h4>
+      <p>99% of every USDT payment goes straight into the reward pool; 1% goes to the game owner. CD1 payments stay in the contract, and the USDT dividends that CD1 earns also feed the pool. The owner can add CD1 Exchange revenue, token income, owner support and marketing funds, and anyone can add a community donation. Every inflow is shown under its own name in the Reward pool box.</p>
+    </div>
+    <div>
+      <h4>Returns are not guaranteed</h4>
+      <p>What you earn depends on how many new miners join and on CD1 dividends. Miners who join early usually earn more. When fewer new miners join, late miners may not earn back what they spent. The wear fee after break-even sends part of the earliest miners' earnings back to the pool for everyone. Only spend what you can afford to lose.</p>
+    </div>
+    <div>
+      <h4>Good to know</h4>
+      <p>Your production is a live estimate. When new miners join, the network grows and your share gets smaller; when the pool grows, everyone earns more. In demo mode, balances and other players are simulated and nothing can be withdrawn.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const GPU=[{h:10,w:100,t:10,c:2},{h:25,w:150,t:15,c:3},{h:60,w:250,t:25,c:6},{h:140,w:400,t:40,c:12},{h:320,w:650,t:65,c:25}];
+const CASE=[{s:2,c:0},{s:4,c:4},{s:6,c:8},{s:8,c:15}];
+const PSU=[{w:300,c:0},{w:600,c:1},{w:1200,c:3},{w:2000,c:6},{w:5500,c:18}];
+const FAC=[{n:"Home room",r:1,c:0},{n:"Garage",r:3,c:6},{n:"Warehouse",r:6,c:18},{n:"Mining farm",r:12,c:48},{n:"Industrial site",r:25,c:120}];
+const ELEC=[{n:"City grid",w:500,c:0},{n:"Generator",w:2000,c:2},{n:"Solar array",w:10000,c:10},{n:"Hydro plant",w:40000,c:50},{n:"Micro reactor",w:150000,c:200}];
+const COOL=[{n:"Desk fan",t:60,c:0},{n:"Tower fans",t:200,c:2},{n:"Air conditioning",t:800,c:6},{n:"Industrial AC",t:3000,c:24},{n:"Liquid cooling",t:15000,c:72}];
+const NET=[{n:"ADSL",u:.85,c:0},{n:"Fiber",u:.92,c:1},{n:"Business fiber",u:.97,c:4},{n:"Redundant line",u:1,c:9}];
+const TECH=[{b:0,c:0},{b:.03,c:2},{b:.06,c:5},{b:.10,c:20},{b:.15,c:60}];
+const PUBLIC=true;
+const NEW_GPU=2, NEW_RIG=3, OC_PER_GPU=.05, POOL_SHARE=0.99, POOL_RATE=0.03, BASE_PRICE=0.42, PRICE_STEP=2, STEP_CD1=2000, CD1_SUPPLY=450000, DIV_TOTAL_DAY=45, DAY=86400, WEAR_DAY=0.01, REPAIR_RATE=0.5;
+
+const S={usdt:1000,cd1:1000,pool:100,acc:0,cd1Locked:10000,usdtFed:0,ownerCut:0,fac:0,elec:0,cool:0,net:0,tech:0,ocUntil:0,t:0,day:-1,divToday:0,divTotal:0,deposits:0,paidOut:0,spent:0,own:0,claimed:0,cd1Spent:0,cd1Price:0.42,lpCd1:20000,lpUsdt:8400,holderSold:0,holderCd1:20000,cd1Used:0,cd1CostUsd:0,pcsAddon:false,earned:0,wear:0,botCd1:0,speed:60,rigs:[],licensed:false,wearStart:null,feesPaid:0,repairPaid:0,wearBack:0,inflow:{exchange:0,tokens:0,owner:0,marketing:0,community:0},sel:null};
+
+const $=id=>document.getElementById(id);
+const fmtInt=n=>Math.floor(n).toLocaleString("en-US");
+const fmtTok=(n,d)=>Number(n).toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const costTag=(a,cur)=>`<span class="cost c-${cur}">${fmtTok(a,a%1?1:0)} ${cur}</span>`;
+
+const oc=()=>S.ocUntil>S.t;
+const gpuCount=()=>S.rigs.reduce((s,r)=>s+r.g.length,0);
+const rigW=r=>r.g.reduce((s,l)=>s+GPU[l].w,0);
+const totW=()=>S.rigs.reduce((s,r)=>s+rigW(r),0);
+const rawHash=()=>S.rigs.reduce((s,r)=>s+r.g.reduce((a,l)=>a+GPU[l].h,0),0);
+const heat=()=>S.rigs.reduce((s,r)=>s+r.g.reduce((a,l)=>a+GPU[l].t,0),0)*(oc()?1.3:1);
+const coolEff=()=>{const h=heat();return h<=0?1:Math.min(1,COOL[S.cool].t/h)};
+const effHash=()=>rawHash()*coolEff()*NET[S.net].u*(1+TECH[S.tech].b)*(oc()?1.25:1);
+const rateFrom=(ws)=>ws==null?0:Math.min(.9,(S.t-ws)/DAY*WEAR_DAY);
+const feeRate=()=>rateFrom(S.wearStart);
+const basis=()=>S.spent+(S.pcsAddon?S.cd1CostUsd:0);
+const botBasis=b=>b.spent+(S.pcsAddon?b.cd1Usd:0);
+const owed=()=>Math.max(0,basis()-S.claimed);
+const pendingFee=()=>Math.max(0,S.acc/1e8-owed())*feeRate();
+const recovered=()=>S.claimed+S.acc/1e8-pendingFee();
+const pastRoi=()=>basis()>0&&S.claimed+S.acc/1e8>=basis();
+const repairCost=()=>Math.max(0,S.claimed+S.acc/1e8-basis())*feeRate()*REPAIR_RATE;
+const pct=r=>(r*100).toFixed(r<.1?1:0)+"%";
+const share=()=>{const h=effHash(),t=h+botHash();return t>0?h/t:0};
+function rng(seed){return()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}}
+const BOTS=(()=>{const R=rng(20261101),b=[];for(let i=0;i<200;i++){const join=i<30?0:1+R()*89,u=R(),budget=u<.5?20+R()*80:u<.85?100+R()*400:500+R()*1500;b.push({join:join*DAY,budget,hpu:budget<100?4:budget<500?6:7.5,reinv:R()<.4,repairs:R()<.7,oc:R()<.3,wearStart:null,cd1:0,cd1Usd:0,rep:0,h:0,active:false,earned:0,pending:0,spent:0})}return b.sort((a,c)=>a.join-c.join)})();
+const EARLY=BOTS.slice(0,50), LATE=BOTS.slice(-50);
+const botHash=()=>{let h=0;for(const b of BOTS)if(b.active)h+=b.h;return h};
+function buyCd1(n){S.cd1Used+=n;if(!PUBLIC)S.cd1Price=BASE_PRICE+PRICE_STEP*S.cd1Used/STEP_CD1}
+function sellCd1(n){n=Math.min(n,S.holderCd1);if(n<=0)return;S.holderCd1-=n;const k=S.lpCd1*S.lpUsdt;S.lpCd1+=n;S.lpUsdt=k/S.lpCd1;S.cd1Price=S.lpUsdt/S.lpCd1;S.holderSold+=n}
+function addUsdtToPool(amt){S.pool+=amt*POOL_SHARE;S.usdtFed+=amt*POOL_SHARE;S.ownerCut+=amt*(1-POOL_SHARE)}
+const netHourSat=()=>S.pool*POOL_RATE/24*1e8;
+
+let toastTimer;
+function toast(msg){const t=$("toast");t.textContent=msg;t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.hidden=true,3200)}
+
+function pay(cur,amt){
+  const k=cur.toLowerCase();
+  if(S[k]+1e-12<amt){toast(`Not enough ${cur}: need ${fmtTok(amt,amt%1?1:0)}, you have ${fmtTok(S[k],2)}.`);return false}
+  S[k]-=amt;
+  if(cur==="USDT"){addUsdtToPool(amt);S.spent+=amt;S.own=Math.max(S.own,S.spent+S.repairPaid-S.claimed)}
+  if(cur==="CD1"){S.cd1Locked+=amt;S.cd1Spent+=amt;S.cd1CostUsd+=amt*S.cd1Price;buyCd1(amt)}
+  return true;
+}
+function doClaim(){const rate=feeRate(),g=S.acc/1e8,fee=pendingFee(),net=g-fee;S.pool+=fee;S.feesPaid+=fee;S.wearBack+=fee;S.usdt+=net;S.claimed+=net;S.acc=0;return{rate,fee,net}}
+function powerOk(dRig,r,label){
+  if(rigW(r)+dRig>PSU[r.p].w){toast(`PSU limit: this rig would draw ${rigW(r)+dRig} W of ${PSU[r.p].w} W. Upgrade the PSU.`);return false}
+  if(totW()+dRig>ELEC[S.elec].w){toast(`Electricity cap: ${totW()+dRig} W of ${fmtInt(ELEC[S.elec].w)} W. Upgrade electricity (CD1).`);return false}
+  return true;
+}
+
+const A={
+  license(){if(S.licensed)return;if(!pay("USDT",3))return;S.licensed=true;S.rigs=[{s:0,p:0,g:[0]}];toast("License active. Your starter set is mining.")},
+  claim(){if(S.acc<1){toast("Nothing to claim yet.");return}const r=doClaim();toast(r.fee>0?`Received ${fmtInt(r.net*1e8)} Sat (${fmtTok(r.net,4)} USDT). Wear fee ${pct(r.rate)}: ${fmtInt(r.fee*1e8)} Sat went to the pool.`:`Received ${fmtInt(r.net*1e8)} Sat = ${fmtTok(r.net,4)} USDT. No wear fee.`)},
+  addGpu(ri){const r=S.rigs[ri];if(r.g.length>=CASE[r.s].s){toast("Rig case is full. Upgrade the case for more slots.");return}if(!powerOk(GPU[0].w,r))return;if(!pay("USDT",NEW_GPU))return;r.g.push(0);S.sel={r:ri,g:r.g.length-1};toast("GPU installed. Mining at Lv1.")},
+  sel(ri,gi){S.sel=(S.sel&&S.sel.r===ri&&S.sel.g===gi)?null:{r:ri,g:gi}},
+  upGpu(ri,gi){const r=S.rigs[ri],l=r.g[gi];if(l>=GPU.length-1){toast("This GPU is at max level.");return}const n=GPU[l+1];if(!powerOk(n.w-GPU[l].w,r))return;if(!pay("USDT",n.c))return;r.g[gi]=l+1;toast(`GPU upgraded to Lv${l+2}: ${n.h} H/s.`)},
+  upCase(ri){const r=S.rigs[ri];if(r.s>=CASE.length-1){toast("Case is at max level.");return}if(!pay("USDT",CASE[r.s+1].c))return;r.s++;toast(`Case now holds ${CASE[r.s].s} GPUs.`)},
+  upPsu(ri){const r=S.rigs[ri];if(r.p>=PSU.length-1){toast("PSU is at max level.");return}if(!pay("USDT",PSU[r.p+1].c))return;r.p++;toast(`PSU now carries ${fmtInt(PSU[r.p].w)} W.`)},
+  addRig(){if(S.rigs.length>=FAC[S.fac].r){toast(`${FAC[S.fac].n} fits ${FAC[S.fac].r} rig${FAC[S.fac].r>1?"s":""}. Upgrade the facility.`);return}if(!pay("USDT",NEW_RIG))return;S.rigs.push({s:0,p:0,g:[]});toast("New rig placed. Add a GPU to start it.")},
+  fac(){if(S.fac>=FAC.length-1)return;if(!pay("USDT",FAC[S.fac+1].c))return;S.fac++;toast(`Moved to ${FAC[S.fac].n}: room for ${FAC[S.fac].r} rigs.`)},
+  elec(){if(S.elec>=ELEC.length-1)return;if(!pay("CD1",ELEC[S.elec+1].c))return;S.elec++;toast(`${ELEC[S.elec].n} online: ${fmtInt(ELEC[S.elec].w)} W.`)},
+  cool(){if(S.cool>=COOL.length-1)return;if(!pay("USDT",COOL[S.cool+1].c))return;S.cool++;toast(`${COOL[S.cool].n} installed.`)},
+  net(){if(S.net>=NET.length-1)return;if(!pay("USDT",NET[S.net+1].c))return;S.net++;toast(`${NET[S.net].n}: ${Math.round(NET[S.net].u*100)}% uptime.`)},
+  tech(){if(S.tech>=TECH.length-1)return;if(!pay("CD1",TECH[S.tech+1].c))return;S.tech++;toast(`Technician Lv${S.tech}: +${Math.round(TECH[S.tech].b*100)}% hash.`)},
+  repair(){const rate=feeRate();if(rate<.005){toast("No wear fee to reset yet.");return}const c=repairCost(),pend=S.acc/1e8-pendingFee();if(S.usdt+pend+1e-12<c){toast(`Not enough USDT: repair costs ${fmtTok(c,2)} USDT.`);return}const r=S.acc>=1?doClaim():{net:0,fee:0};if(c>0){pay("USDT",c);S.spent-=c;S.repairPaid+=c;S.own=Math.max(S.own,S.spent+S.repairPaid-S.claimed)}S.wearStart=null;toast(`${r.net>0?`Claimed ${fmtTok(r.net,4)} USDT at the ${pct(rate)} fee, then r`:"R"}epaired for ${fmtTok(c,2)} USDT. Wear fee is now 0%.`)},
+  oc(){const n=gpuCount();if(!n){toast("Install a GPU before overclocking.");return}const c=OC_PER_GPU*n;if(!pay("CD1",c))return;const first=S.ocUntil<=S.t;S.ocUntil=first?Math.ceil((S.t+DAY)/DAY)*DAY:S.ocUntil+DAY;toast(first?"Overclock on until the next 00:00 UTC after 24 hours.":"Overclock extended by one day.")}
+};
+
+function meter(label,val,max,txt,inv){
+  const p=max>0?Math.min(100,val/max*100):0;
+  const cls=inv?(p<88?"warn":""):(p>=100?"bad":p>=80?"warn":"");
+  return `<div class="meter"><div class="top"><span>${label}</span><span class="num">${txt}</span></div><div class="bar"><i class="${cls}" style="width:${p}%"></i></div></div>`;
+}
+function hintText(){
+  const opts=[];
+  const slotsFree=S.rigs.some(r=>r.g.length<CASE[r.s].s);
+  const psuRoom=S.rigs.some(r=>r.g.length<CASE[r.s].s&&rigW(r)+100<=PSU[r.p].w);
+  if(!S.licensed)return `<b>Buy the 3 USDT license</b> to get your starter set and start mining.`;
+  if(feeRate()>=.05)return `<b>Wear fee ${pct(feeRate())}:</b> that share of what you claim goes back to the pool. Repair for ${fmtTok(repairCost(),2)} USDT to reset it; repair claims your mined Sat first.`;
+  if(heat()>COOL[S.cool].t)return `<b>Overheating:</b> hash is running at ${Math.round(coolEff()*100)}%. Upgrade cooling.`;
+  if(totW()+100>ELEC[S.elec].w)return `<b>Next limit: electricity.</b> ${fmtInt(totW())} of ${fmtInt(ELEC[S.elec].w)} W used. Upgrade it with CD1.`;
+  if(slotsFree&&!psuRoom)return `<b>Next limit: PSU.</b> Your free slots have no power left. Upgrade a PSU.`;
+  if(!slotsFree&&S.rigs.length>=FAC[S.fac].r)return `<b>Next limit: space.</b> Cases are full and the ${FAC[S.fac].n.toLowerCase()} has no room. Upgrade a case (USDT) or the facility.`;
+  if(!slotsFree)return `<b>Next limit: slots.</b> Upgrade a case (USDT) or add a rig.`;
+  return `<b>Room to grow:</b> add a GPU for 2 USDT or upgrade one you have.`;
+}
+
+function render(){
+  const ri=S.rigs.length, fac=FAC[S.fac];
+  $("meters").innerHTML=
+    meter("Power",totW(),ELEC[S.elec].w,`${fmtInt(totW())} / ${fmtInt(ELEC[S.elec].w)} W`)+
+    meter("Heat",heat(),COOL[S.cool].t,`${fmtInt(heat())} / ${fmtInt(COOL[S.cool].t)}`)+
+    meter("Rigs",ri,fac.r,`${ri} / ${fac.r}`)+
+    meter("Uptime",NET[S.net].u,1,`${Math.round(NET[S.net].u*100)}%`,true)+
+    meter("Wear fee",feeRate(),.5,pct(feeRate()))+
+    meter("Earned back",basis()?recovered():0,basis()||1,basis()?`${(recovered()/basis()*100).toFixed(1)}%`:"–",true);
+  $("hint").innerHTML=hintText();
+  $("rigCount").textContent=`${ri}/${fac.r}`;
+
+  $("licenseBox").hidden=S.licensed;$("heroMain").hidden=!S.licensed;
+  $("rigs").innerHTML=S.licensed?"":`<div class="empty">No rigs yet. The license includes your first rig and GPU.</div>`;
+  if(S.licensed)$("rigs").innerHTML=S.rigs.map((r,i)=>{
+    const slots=CASE[r.s].s; let cells="";
+    for(let k=0;k<slots;k++){
+      if(k<r.g.length){const l=r.g[k],sel=S.sel&&S.sel.r===i&&S.sel.g===k;
+        cells+=`<button class="gpu" id="gpu-${i}-${k}" data-act="sel" data-r="${i}" data-g="${k}" aria-pressed="${!!sel}"><span class="fan"></span><div class="l">L${l+1}</div>${GPU[l].h} H/s</button>`;
+      } else if(k===r.g.length){cells+=`<button class="slot open" id="slot-${i}" data-act="addGpu" data-r="${i}">+ GPU<br>2 USDT</button>`}
+      else cells+=`<button class="slot" disabled aria-label="Empty slot">empty</button>`;
+    }
+    let detail="";
+    if(S.sel&&S.sel.r===i&&r.g[S.sel.g]!==undefined){
+      const l=r.g[S.sel.g],c=GPU[l],n=GPU[l+1];
+      detail=`<div class="detail"><div>GPU ${S.sel.g+1} · Lv${l+1} · <span class="num">${c.h} H/s · ${c.w} W · ${c.t} heat</span></div>${n?`<button class="btn" data-act="upGpu" data-r="${i}" data-g="${S.sel.g}">Upgrade to Lv${l+2}: <span class="num">${n.h} H/s, ${n.w} W</span> ${costTag(n.c,"USDT")}</button>`:`<div class="sub">Max level reached.</div>`}</div>`;
+    }
+    const cn=CASE[r.s+1],pn=PSU[r.p+1];
+    return `<div class="rig"><div class="rig-head"><b>RIG ${i+1}</b><span class="sub num">${slots}-slot case · PSU ${fmtInt(rigW(r))}/${fmtInt(PSU[r.p].w)} W</span></div>
+      <div class="slots">${cells}</div>${detail}
+      <div class="row-btns">
+        ${cn?`<button class="btn" data-act="upCase" data-r="${i}">Case → ${cn.s} slots ${costTag(cn.c,"USDT")}</button>`:""}
+        ${pn?`<button class="btn" data-act="upPsu" data-r="${i}">PSU → ${fmtInt(pn.w)} W ${costTag(pn.c,"USDT")}</button>`:""}
+      </div></div>`;
+  }).join("");
+
+  const ocLeft=Math.max(0,S.ocUntil-S.t);
+  const rows=[
+    ["fac","Facility",S.fac,FAC,FAC[S.fac].n+` · ${FAC[S.fac].r} rig${FAC[S.fac].r>1?"s":""}`,x=>`${x.n}, ${x.r} rigs`,"USDT"],
+    ["elec","Electricity",S.elec,ELEC,`${ELEC[S.elec].n} · ${fmtInt(ELEC[S.elec].w)} W`,x=>`${x.n}, ${fmtInt(x.w)} W`,"CD1"],
+    ["cool","Cooling",S.cool,COOL,`${COOL[S.cool].n} · ${fmtInt(COOL[S.cool].t)} heat`,x=>`${x.n}, ${fmtInt(x.t)} heat`,"USDT"],
+    ["net","Internet",S.net,NET,`${NET[S.net].n} · ${Math.round(NET[S.net].u*100)}% uptime`,x=>`${x.n}, ${Math.round(x.u*100)}%`,"USDT"],
+    ["tech","Technician",S.tech,TECH,S.tech?`+${Math.round(TECH[S.tech].b*100)}% hash`:"None hired",x=>`+${Math.round(x.b*100)}% hash`,"CD1"]
+  ];
+  $("ups").innerHTML=rows.map(([k,name,lv,tbl,now,nx,cur])=>{
+    const n=tbl[lv+1];
+    return `<div class="up"><div><span class="name">${name}</span><span class="lv">Lv${lv+1}</span></div>
+      ${n?`<button class="btn" id="up-${k}" data-act="${k}">${costTag(n.c,cur)}</button>`:`<span class="sub">Max</span>`}
+      <div class="desc">${now}${n?` → ${nx(n)}`:""}</div></div>`;
+  }).join("")+
+  `<div class="up"><div><span class="name">Overclock</span><span class="lv">${ocLeft?"ON":"OFF"}</span></div>
+    <button class="btn" id="up-oc" data-act="oc">${costTag(OC_PER_GPU*gpuCount(),"CD1")}</button>
+    <div class="desc" id="ocDesc"></div></div>
+  <div class="up"><div><span class="name">Repair</span><span class="lv">fee ${pct(feeRate())}</span></div>
+    <button class="btn" id="up-repair" data-act="repair">${costTag(repairCost(),"USDT")}</button>
+    <div class="desc" id="repDesc"></div></div>`;
+  tickText();
+}
+
+function tickText(){
+  const sh=share(), nh=netHourSat();
+  const rate=feeRate(),feeSat=pendingFee()*1e8,netSat=S.acc-feeSat,freeSat=Math.min(S.acc,owed()*1e8);
+  $("acc").textContent=fmtInt(netSat);
+  $("accUsd").textContent=`≈ ${fmtTok(netSat/1e8,8)} USDT`;
+  $("breakdown").innerHTML=`<span class="muted">Mined</span><span>${fmtInt(S.acc)} Sat</span>`+
+    (rate>0&&freeSat>0?`<span class="muted">Fee-free (getting your money back)</span><span>${fmtInt(freeSat)} Sat</span>`:"")+(rate>0?`<span class="fee">Wear fee (${pct(rate)} of profit) → reward pool</span><span class="fee">−${fmtInt(feeSat)} Sat</span>`:`<span class="muted">Wear fee</span><span>0%</span>`)+
+    `<span class="tot">You receive</span><span class="tot">${fmtInt(netSat)} Sat</span>`;
+  $("claimBtn").textContent=`Claim ${fmtInt(netSat)} Sat`;
+  const rd=$("repDesc");if(rd)rd.textContent=rate>0?`Resets the wear fee to 0%. It first claims your ${fmtInt(S.acc)} mined Sat with the current fee (−${fmtInt(feeSat)} Sat), so the fee cannot be skipped.`:(pastRoi()?"Wear fee starts now and rises 1% per day.":"No wear fee until you earn back what you spent.");
+  $("satHour").textContent=fmtInt(nh*sh);
+  $("share").textContent=(sh*100).toFixed(3)+"%";
+  $("usdDay").textContent=fmtTok(S.pool*POOL_RATE*sh,5)+" USDT/day";
+  $("hash").textContent=effHash().toLocaleString("en-US",{maximumFractionDigits:1});
+  $("miners").textContent=fmtInt(BOTS.filter(b=>b.active).length+(S.licensed?1:0));
+  $("pool").textContent=fmtTok(S.pool,4)+" USDT";
+  $("poolDay").textContent=fmtTok(S.pool*POOL_RATE,4)+" USDT";
+  $("netHour").textContent=fmtInt(nh);
+  $("netHash").textContent=fmtInt(effHash()+botHash())+" H/s";
+  $("cd1Locked").textContent=fmtTok(S.cd1Locked,1)+" CD1";
+  $("usdtFed").textContent=fmtTok(S.usdtFed,2)+" USDT";
+  $("ownerCut").textContent=fmtTok(S.ownerCut,2)+" USDT";
+  $("divDay").textContent=fmtTok(S.divToday,2)+" USDT";
+  if($("cd1PriceTxt"))$("cd1PriceTxt").textContent="$"+fmtTok(S.cd1Price,S.cd1Price<10?3:2)+` (${(S.cd1Price/BASE_PRICE).toFixed(2)}×)`;
+  $("usedTxt").textContent=fmtInt(S.cd1Used)+" CD1";
+  $("dayNo").textContent=String(Math.floor(S.t/DAY)+1);
+  $("joined").textContent=BOTS.filter(b=>b.active).length+" / 200";
+  $("deposits").textContent=fmtTok(S.deposits,0)+" USDT";
+  $("paidOut").textContent=fmtTok(S.paidOut,2)+" USDT";
+  $("divTotal").textContent=fmtTok(S.divTotal,2)+" USDT";
+  $("inWear").textContent=fmtTok(S.wearBack,2)+" USDT";
+  $("inDiv").textContent=fmtTok(S.divTotal,2)+" USDT";
+  let ext=0;for(const k in S.inflow){ext+=S.inflow[k];$("in-"+k).textContent=fmtTok(S.inflow[k],2)+" USDT"}
+  $("inTotal").textContent=fmtTok(S.usdtFed+S.wearBack+S.divTotal+ext,2)+" USDT";
+  $("botCd1").textContent=fmtTok(S.botCd1,0)+" CD1";
+  cohort(EARLY,"e");cohort(LATE,"l");
+  row("y",S.own,recovered()-basis()-S.repairPaid,S.cd1Spent,S.cd1CostUsd);
+  $("wUsdt").textContent=fmtTok(S.usdt,4);
+  $("wCd1").textContent=fmtTok(S.cd1,1);
+  const d=$("ocDesc");
+  if(d){const left=Math.max(0,S.ocUntil-S.t);d.textContent=left?`+25% hash, +30% heat · ${Math.floor(left/3600)}h ${Math.floor(left%3600/60)}m left · tap to add one more day`:`+25% hash, +30% heat · at least 24 h, ends at 00:00 UTC · 0.05 CD1 per GPU`}
+}
+
+let wasOc=false;
+function row(k,own,net,cd1,cd1Usd){
+  $(k+"S").textContent=own>0?fmtTok(own,0):"–";
+  $(k+"C").textContent=own>0?`${fmtTok(cd1,0)}${S.pcsAddon?` ($${fmtTok(cd1Usd,0)})`:""}`:"–";
+  const base=own+(S.pcsAddon?cd1Usd:0);
+  const n=$(k+"E");n.textContent=own>0?(net>=0?"+":"")+fmtTok(net,2):"–";n.className=own>0?(net>=0?"pos":"neg"):"";
+  const r=$(k+"R");
+  if(own>0){const p=(base+net)/base*100;r.textContent=p.toFixed(1)+"%";r.className=p>=100?"pos":"neg"}else{r.textContent="not in yet";r.className=""}
+}
+function cohort(list,k){let own=0,net=0,c=0,cu=0;for(const b of list)if(b.active){own+=b.budget;net+=b.earned-botBasis(b)-b.rep;c+=b.cd1;cu+=b.cd1Usd}row(k,own,net,c,cu)}
+function tick(){
+  const dt=0.25*S.speed;
+  S.t+=dt;
+  const d=Math.floor(S.t/DAY);
+  let newDay=false;
+  if(d!==S.day){S.day=d;newDay=true;S.divToday=DIV_TOTAL_DAY*(S.cd1Price/BASE_PRICE)*(.5+Math.random())*Math.min(1,S.cd1Locked/CD1_SUPPLY);
+    for(const b of BOTS){if(!b.active)continue;
+      if(b.reinv&&S.t-b.join<30*DAY&&b.pending>0){const a=b.pending;addUsdtToPool(a);b.h+=a*b.hpu;b.spent+=a;b.pending=0}
+      {const r=rateFrom(b.wearStart);if(b.repairs&&r>=.1){const c=Math.max(0,b.earned-b.spent)*r*REPAIR_RATE;if(b.pending>=c){addUsdtToPool(c);b.rep+=c;b.pending-=c;b.wearStart=null}}}
+      if(b.oc){const c=b.h/9200;b.cd1+=c;b.cd1Usd+=c*S.cd1Price;S.cd1Locked+=c;S.botCd1+=c;buyCd1(c)}}}
+  for(const b of BOTS){if(!b.active&&S.t>=b.join){b.active=true;b.h=b.budget*b.hpu;b.spent=b.budget;S.deposits+=b.budget;addUsdtToPool(b.budget);const c=b.budget*.1;b.cd1+=c;b.cd1Usd+=c*S.cd1Price;S.cd1Locked+=c;S.botCd1+=c;buyCd1(c)}}
+  const mine=effHash(),bh=botHash(),tot=mine+bh;
+  const dist=tot>0?S.pool*(1-Math.pow(1-POOL_RATE,dt/DAY)):0;
+  let back=0;
+  if(tot>0){for(const b of BOTS)if(b.active){const e=dist*b.h/tot,f=b.earned>=botBasis(b)?e*rateFrom(b.wearStart):0;back+=f;b.earned+=e-f;b.pending+=e-f}
+    const me=dist*mine/tot;S.acc+=me*1e8;S.earned+=me}
+  S.paidOut+=dist;
+  const div=S.divToday*dt/DAY;S.divTotal+=div;
+  S.pool+=-dist+div+back;S.wearBack+=back;
+  for(const b of BOTS)if(b.active&&b.wearStart==null&&b.earned>=botBasis(b))b.wearStart=S.t;
+  if(S.wearStart==null&&pastRoi())S.wearStart=S.t;
+  if(newDay){render();return}
+  const nowOc=oc(); if(nowOc!==wasOc){wasOc=nowOc;render();return}
+  tickText();
+}
+
+function setSpeed(v){S.speed=v;document.querySelectorAll("header .speed button").forEach(b=>b.setAttribute("aria-pressed",String(+b.dataset.speed===v)))}
+document.querySelector(".speed").addEventListener("click",e=>{const b=e.target.closest("button");if(b)setSpeed(+b.dataset.speed)});
+document.addEventListener("click",e=>{
+  const b=e.target.closest("[data-act]"); if(!b)return;
+  const act=b.dataset.act, r=b.dataset.r!==undefined?+b.dataset.r:undefined, g=b.dataset.g!==undefined?+b.dataset.g:undefined;
+  if(!S.licensed&&act!=="license"&&A[act]){toast("Buy the 3 USDT mining license first.");return}
+  if(A[act]){A[act](r,g);render();}
+});
+const help=$("help");let lastFocus=null;
+function openHelp(){lastFocus=document.activeElement;help.hidden=false;$("helpClose").focus();try{localStorage.setItem("satminer-help-seen","1")}catch(e){}}
+function closeHelp(){help.hidden=true;if(lastFocus&&lastFocus.focus)lastFocus.focus()}
+$("helpBtn").addEventListener("click",openHelp);
+$("helpClose").addEventListener("click",closeHelp);
+help.addEventListener("click",e=>{if(e.target===help)closeHelp()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!help.hidden)closeHelp()});
+if(!PUBLIC&&$("ownerDemo"))$("ownerDemo").addEventListener("click",e=>{const b=e.target.closest("[data-add]");if(!b)return;const k=$("inSrc").value,a=+b.dataset.add;S.inflow[k]+=a;S.pool+=a;tickText();toast(`${a} USDT added to the pool as ${$("inSrc").selectedOptions[0].text}.`)});
+setSpeed(60); render(); setInterval(tick,250);
+try{if(!localStorage.getItem("satminer-help-seen"))openHelp()}catch(e){}
+</script>
+
+</body>
+</html>
