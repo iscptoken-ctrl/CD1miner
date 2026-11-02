@@ -136,6 +136,8 @@ h2{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.1
 <style>
 .connect{font:600 13px var(--f-body);padding:7px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#1a1206;cursor:pointer}
 .connect.on{background:var(--accent-soft);color:var(--accent)}
+.be{margin-top:8px;font-size:13px;color:var(--muted)}
+.be b{color:var(--fg)}
 .demo-link{font:600 12px var(--f-body);padding:6px 10px;border-radius:6px;border:1px solid var(--line);color:var(--muted);text-decoration:none}
 .banner{background:var(--accent-soft);border:1px solid #3a3226;border-radius:10px;padding:12px 14px;font-size:14px}
 .banner b{color:var(--accent)}
@@ -155,6 +157,7 @@ a.ext{color:var(--accent)}
     <div class="head-r">
       <button class="help-btn" id="helpBtn" type="button">How to play</button>
       <a class="demo-link" href="demo.html">Free demo</a>
+      <a class="demo-link" href="https://t.me/BabyCreedToken" target="_blank" rel="noopener">Telegram</a>
       <button class="connect" id="connectBtn" type="button">Connect wallet</button>
     </div>
   </header>
@@ -188,6 +191,7 @@ a.ext{color:var(--accent)}
     <div class="acc"><span id="acc" class="num">0</span><small>SAT</small></div>
     <div class="sub num" id="accUsd">≈ 0 USDT</div>
     <div class="bd" id="breakdown"></div>
+    <div class="be" id="breakEven"></div>
     <div class="stats">
       <div class="stat"><div class="k">Production</div><div class="v" id="satHour">0</div><div class="s">Sat / hour</div></div>
       <div class="stat"><div class="k">Network share</div><div class="v" id="share">0%</div><div class="s" id="usdDay">0 USDT / day</div></div>
@@ -257,6 +261,7 @@ a.ext{color:var(--accent)}
     </div>
   </section>
 
+  <p class="note">Questions, news and pool reports: <a class="ext" href="https://t.me/BabyCreedToken" target="_blank" rel="noopener">Telegram group</a></p>
   <p class="note">1 Sat = 0.00000001 USDT. Rewards depend on how many miners join and on pool inflows; they are not guaranteed. Only USDT counts toward break-even. Before an upgrade your wallet asks you to approve the exact USDT or CD1 amount, then to confirm the purchase.</p>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -559,6 +564,18 @@ function tick() {
   $("share").textContent = (sh * 100).toFixed(3) + "%";
   $("usdDay").textContent = fmtTok(S.pool * 0.03 * sh, 5) + " USDT/day";
   $("hash").textContent = fmtTok(effH(), 1);
+  // break-even estimate (USDT only, at today's pool and network)
+  const left = U(v().spent) - U(v().claimedNet) - e.mined;
+  const perDay = S.pool * 0.03 * sh;
+  const be = $("breakEven");
+  if (U(v().spent) <= 0) be.textContent = "";
+  else if (left <= 0) be.innerHTML = "<b>You have earned back what you spent.</b> The wear fee applies to profit from here on.";
+  else if (perDay <= 0) be.textContent = "Break-even: not mining right now.";
+  else {
+    const d = left / perDay;
+    const txt = d < 1 ? `about ${Math.max(1, Math.round(d * 24))} hours` : d < 365 ? `about ${Math.round(d)} day${Math.round(d) === 1 ? "" : "s"}` : "more than a year";
+    be.innerHTML = `Break-even: <b>${txt}</b> at today's rate (${fmtTok(left, 2)} USDT to go). This is an estimate and changes with the pool and the number of miners.`;
+  }
 }
 
 // ---------- wallet ----------
